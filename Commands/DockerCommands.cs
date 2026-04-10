@@ -10,4 +10,7 @@ public static class DockerCommands
 
     public static readonly CommandSpec DockerScoutCvesNginxLatest =
         new("docker", ["scout", "cves", "nginx:latest"]);
+
+    public static readonly CommandSpec DockerVersion =
+        new("docker", ["version", "--format", "json"]);
 }

@@ -18,16 +18,21 @@ public sealed class DockerRepository : IDockerRepository
 
     public string GetScoutCvesNginxLatest()
     {
-        var result = Run(DockerCommands.DockerScoutCvesNginxLatest);
-        return result.StdOut;
+        var (ExitCode, StdOut, StdErr) = Run(DockerCommands.DockerScoutCvesNginxLatest);
+        return StdOut;
+    }
+
+    public DockerVersion? GetVersion()
+    {
+        return RunJson<DockerVersion>(DockerCommands.DockerVersion);
     }
 
     private static List<T> GetAll<T>(CommandSpec command)
     {
-        var result = Run(command);
+        var (ExitCode, StdOut, StdErr) = Run(command);
 
         var results = new List<T>();
-        var lines = result.StdOut.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        var lines = StdOut.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
         {
             var item = JsonSerializer.Deserialize<T>(line);
@@ -36,6 +41,15 @@ public sealed class DockerRepository : IDockerRepository
         }
 
         return results;
+    }
+
+    private static T? RunJson<T>(CommandSpec command)
+    {
+        var (ExitCode, StdOut, StdErr) = Run(command);
+        if (string.IsNullOrWhiteSpace(StdOut))
+            return default;
+
+        return JsonSerializer.Deserialize<T>(StdOut);
     }
 
     private static (int ExitCode, string StdOut, string StdErr) Run(CommandSpec command)
