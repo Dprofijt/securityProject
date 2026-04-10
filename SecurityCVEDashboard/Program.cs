@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<DockerImageInventoryService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<GoogleCveAnalysisService>();
 
 var app = builder.Build();
 
