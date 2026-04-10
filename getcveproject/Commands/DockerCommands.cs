@@ -9,5 +9,8 @@ public static class DockerCommands
         new("docker", ["container", "ls", "--all", "--format", "json"]);
 
     public static readonly CommandSpec DockerScoutCvesNginxLatest =
-        new("docker", ["scout", "cves", "dprofijt/snackreview:0.1.4"]);
+        new("docker", ["scout", "cves", "nginx:latest"]);
+
+    public static readonly CommandSpec DockerVersion =
+        new("docker", ["version", "--format", "json"]);
 }
