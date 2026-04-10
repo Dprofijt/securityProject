@@ -68,6 +68,7 @@ If introducing these folders incrementally, do not perform large-scale moves unl
 - Accept `CancellationToken` in async methods where applicable.
 - Validate inputs early and fail fast with clear exceptions/messages.
 - Avoid static mutable state.
+- Avoid workarounds and fallbacks that obscure intent; prefer explicit handling of edge cases.
 
 ## Error handling and resilience
 - Do not swallow exceptions.
