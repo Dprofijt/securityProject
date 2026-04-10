@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>f4505e29-ebf8-4a46-9f43-704fe4e1b36c</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include=".github\" />
+  </ItemGroup>
+
+</Project>
