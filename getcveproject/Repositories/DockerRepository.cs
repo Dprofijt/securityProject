@@ -22,6 +22,11 @@ public sealed class DockerRepository : IDockerRepository
         return StdOut;
     }
 
+    public JsonDocument? GetSbom(string imageRef)
+    {
+        return RunJsonDocument(DockerCommands.DockerScoutSbom(imageRef));
+    }
+
     public DockerVersion? GetVersion()
     {
         return RunJson<DockerVersion>(DockerCommands.DockerVersion);
@@ -50,6 +55,15 @@ public sealed class DockerRepository : IDockerRepository
             return default;
 
         return JsonSerializer.Deserialize<T>(StdOut);
+    }
+
+    private static JsonDocument? RunJsonDocument(CommandSpec command)
+    {
+        var (ExitCode, StdOut, StdErr) = Run(command);
+        if (string.IsNullOrWhiteSpace(StdOut))
+            return default;
+
+        return JsonDocument.Parse(StdOut);
     }
 
     private static (int ExitCode, string StdOut, string StdErr) Run(CommandSpec command)

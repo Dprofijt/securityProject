@@ -23,7 +23,10 @@ public sealed class DockerApp
         {
             var imageRef = BuildImageRef(image);
             if (!string.IsNullOrWhiteSpace(imageRef))
+            {
                 image.ScoutReport = _repo.GetScoutCves(imageRef);
+                image.Sbom = _repo.GetSbom(imageRef);
+            }
         }
 
         var docker = new Docker
