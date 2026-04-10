@@ -1,10 +1,12 @@
 using SecurityCVEDashboard.Components;
+using SecurityCVEDashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton<DockerImageInventoryService>();
 
 var app = builder.Build();
 
