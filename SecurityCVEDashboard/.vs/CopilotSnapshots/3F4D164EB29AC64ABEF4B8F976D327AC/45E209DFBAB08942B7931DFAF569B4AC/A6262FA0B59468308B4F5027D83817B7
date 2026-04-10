@@ -1,0 +1,269 @@
+﻿@page "/"
+@inject SecurityCVEDashboard.Services.DockerImageInventoryService DockerImageInventory
+@inject SecurityCVEDashboard.Services.GoogleCveAnalysisService GoogleCveAnalysis
+
+<PageTitle>Container Dashboard</PageTitle>
+
+<h1>Container Image Dashboard</h1>
+<p class="text-body-secondary">Select one container image to view its CVEs.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Total images</h2>
+                <div class="display-6">@allImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Selected container CVEs</h2>
+                <div class="display-6">@visibleCves.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Critical CVEs</h2>
+                <div class="display-6">@visibleCves.Count(c => c.EffectiveSeverity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase))</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Risk score</h2>
+                <div class="display-6">@(selectedReport?.RiskScore.ToString("0.0") ?? "0.0")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Container filter</div>
+    <div class="card-body">
+        <label class="form-label">Container image</label>
+        <select class="form-select" @bind="SelectedContainerId">
+            @foreach (var image in selectableContainers)
+            {
+                <option value="@image.ID">@GetContainerLabel(image)</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>Selected container details</span>
+        <button class="btn btn-sm btn-primary" @onclick="AnalyzeSelectedContainerAsync" disabled="@(selectedReport is null || isAnalyzing)">
+            @(isAnalyzing ? "Analyzing..." : "Analyze with Google Agent")
+        </button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Containers</th>
+                    <th>Created</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (selectedImage is null)
+                {
+                    <tr><td colspan="6" class="text-body-secondary">No container selected.</td></tr>
+                }
+                else
+                {
+                    <tr>
+                        <td>@selectedImage.Repository</td>
+                        <td><span class="badge text-bg-secondary">@selectedImage.Tag</span></td>
+                        <td><code>@selectedImage.ID</code></td>
+                        <td>@selectedImage.Containers</td>
+                        <td>@selectedImage.CreatedSince</td>
+                        <td>@selectedImage.Size</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Google Agent analysis</div>
+    <div class="card-body">
+        @if (!string.IsNullOrWhiteSpace(analysisError))
+        {
+            <div class="alert alert-warning mb-0">@analysisError</div>
+        }
+        else if (string.IsNullOrWhiteSpace(analysisText))
+        {
+            <div class="text-body-secondary">Run analysis to get exploit-chain and remediation guidance for the selected container.</div>
+        }
+        else
+        {
+            <pre class="mb-0" style="white-space: pre-wrap;">@analysisText</pre>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">CVEs for selected container</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>CVE</th>
+                    <th>Severity</th>
+                    <th>Package</th>
+                    <th>Affected range</th>
+                    <th>Fixed version</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (visibleCves.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No CVEs for the selected container.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var cve in visibleCves)
+                    {
+                        <tr>
+                            <td><code>@cve.Id</code></td>
+                            <td><span class="badge @GetSeverityBadgeClass(cve.EffectiveSeverity)">@cve.EffectiveSeverity</span></td>
+                            <td class="text-break"><small>@cve.Package</small></td>
+                            <td>@cve.AffectedRange</td>
+                            <td>@cve.FixedVersion</td>
+                            <td>@cve.AdjustedScore.ToString("0.0")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> allImages = [];
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> selectableContainers = [];
+    private SecurityCVEDashboard.Models.VulnerabilityAnalysisSnapshot vulnerabilitySnapshot = new();
+    private IReadOnlyDictionary<string, SecurityCVEDashboard.Models.ImageCveReport> reportsByImageId = new Dictionary<string, SecurityCVEDashboard.Models.ImageCveReport>(StringComparer.OrdinalIgnoreCase);
+
+    private string selectedContainerId = string.Empty;
+    private bool isAnalyzing;
+    private string analysisText = string.Empty;
+    private string analysisError = string.Empty;
+
+    private string SelectedContainerId
+    {
+        get => selectedContainerId;
+        set
+        {
+            if (selectedContainerId.Equals(value, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            selectedContainerId = value;
+            analysisText = string.Empty;
+            analysisError = string.Empty;
+        }
+    }
+
+    private SecurityCVEDashboard.Models.DockerImageInfo? selectedImage => selectableContainers.FirstOrDefault(image => image.ID.Equals(selectedContainerId, StringComparison.OrdinalIgnoreCase));
+
+    private SecurityCVEDashboard.Models.ImageCveReport? selectedReport
+        => reportsByImageId.TryGetValue(selectedContainerId, out var report) ? report : null;
+
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveRecord> visibleCves
+        => selectedReport?.Vulnerabilities
+            .OrderByDescending(cve => GetSeverityRank(cve.EffectiveSeverity))
+            .ThenByDescending(cve => cve.AdjustedScore)
+            .ThenBy(cve => cve.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList()
+           ?? [];
+
+    protected override void OnInitialized()
+    {
+        allImages = DockerImageInventory.GetImages();
+        vulnerabilitySnapshot = DockerImageInventory.GetVulnerabilityAnalysisSnapshot();
+
+        reportsByImageId = vulnerabilitySnapshot.ImageReports
+            .Where(report => !string.IsNullOrWhiteSpace(report.ImageId))
+            .GroupBy(report => report.ImageId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        selectableContainers = allImages
+            .Where(image => reportsByImageId.ContainsKey(image.ID))
+            .ToList();
+
+        if (selectableContainers.Count == 0)
+        {
+            selectableContainers = allImages;
+        }
+
+        selectedContainerId = selectableContainers.FirstOrDefault()?.ID ?? string.Empty;
+    }
+
+    private async Task AnalyzeSelectedContainerAsync()
+    {
+        analysisText = string.Empty;
+        analysisError = string.Empty;
+
+        if (selectedImage is null || selectedReport is null)
+        {
+            analysisError = "Select a container with CVEs first.";
+            return;
+        }
+
+        isAnalyzing = true;
+
+        try
+        {
+            var result = await GoogleCveAnalysis.AnalyzeContainerAsync(selectedImage, selectedReport);
+            if (result.IsSuccess)
+            {
+                analysisText = result.Analysis;
+            }
+            else
+            {
+                analysisError = result.Error;
+            }
+        }
+        finally
+        {
+            isAnalyzing = false;
+        }
+    }
+
+    private static string GetContainerLabel(SecurityCVEDashboard.Models.DockerImageInfo image)
+        => $"{image.Repository}:{image.Tag} ({image.ID})";
+
+    private static string GetSeverityBadgeClass(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => "text-bg-danger",
+        "HIGH" => "text-bg-danger",
+        "MEDIUM" => "text-bg-warning",
+        "LOW" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+
+    private static int GetSeverityRank(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => 4,
+        "HIGH" => 3,
+        "MEDIUM" => 2,
+        "LOW" => 1,
+        _ => 0
+    };
+}

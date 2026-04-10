@@ -1,0 +1,35 @@
+﻿using System.Text.Json;
+using SecurityCVEDashboard.Models;
+
+namespace SecurityCVEDashboard.Services;
+
+public sealed class DockerImageInventoryService
+{
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static readonly string[] SampleDockerImageLines =
+    [
+        "{\"Containers\":\"0\",\"CreatedAt\":\"2026-04-07 19:31:28 +0200 CEST\",\"CreatedSince\":\"2 days ago\",\"Digest\":\"<none>\",\"ID\":\"7f0adca1fc6c\",\"Repository\":\"nginx\",\"SharedSize\":\"N/A\",\"Size\":\"240MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\"}",
+        "{\"Containers\":\"1\",\"CreatedAt\":\"2026-04-05 08:10:12 +0200 CEST\",\"CreatedSince\":\"4 days ago\",\"Digest\":\"<none>\",\"ID\":\"9bb65ea2a0a1\",\"Repository\":\"redis\",\"SharedSize\":\"N/A\",\"Size\":\"117MB\",\"Tag\":\"7.2\",\"UniqueSize\":\"N/A\"}",
+        "{\"Containers\":\"0\",\"CreatedAt\":\"2026-04-01 12:44:07 +0200 CEST\",\"CreatedSince\":\"8 days ago\",\"Digest\":\"<none>\",\"ID\":\"b23df2234df5\",\"Repository\":\"postgres\",\"SharedSize\":\"N/A\",\"Size\":\"455MB\",\"Tag\":\"16\",\"UniqueSize\":\"N/A\"}
+    ];
+
+    public IReadOnlyList<DockerImageInfo> GetImages()
+    {
+        var images = new List<DockerImageInfo>();
+
+        foreach (var line in SampleDockerImageLines)
+        {
+            var image = JsonSerializer.Deserialize<DockerImageInfo>(line, SerializerOptions);
+            if (image is not null)
+            {
+                images.Add(image);
+            }
+        }
+
+        return images;
+    }
+}

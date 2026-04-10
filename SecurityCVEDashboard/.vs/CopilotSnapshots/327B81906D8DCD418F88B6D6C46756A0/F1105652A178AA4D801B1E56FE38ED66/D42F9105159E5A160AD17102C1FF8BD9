@@ -1,0 +1,301 @@
+﻿@page "/"
+@inject SecurityCVEDashboard.Services.DockerImageInventoryService DockerImageInventory
+
+<PageTitle>Container Dashboard</PageTitle>
+
+<h1>Container Image Dashboard</h1>
+<p class="text-body-secondary">Data source: local `test.json` (Docker Scout SARIF) + container inventory.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Total images</h2>
+                <div class="display-6">@allImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Visible images</h2>
+                <div class="display-6">@visibleImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Visible CVEs</h2>
+                <div class="display-6">@visibleCves.Count</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Image filters</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Search image/repository/id</label>
+                <input class="form-control" @bind="imageSearchText" @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Repository</label>
+                <select class="form-select" @bind="selectedRepository">
+                    <option value="All">All</option>
+                    @foreach (var repository in repositories)
+                    {
+                        <option value="@repository">@repository</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tag</label>
+                <select class="form-select" @bind="selectedTag">
+                    <option value="All">All</option>
+                    @foreach (var tag in tags)
+                    {
+                        <option value="@tag">@tag</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Container state</label>
+                <select class="form-select" @bind="containerFilter">
+                    <option value="All">All</option>
+                    <option value="InUse">In use (&gt; 0)</option>
+                    <option value="Unused">Unused (= 0)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Filtered container images</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Containers</th>
+                    <th>Created</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (visibleImages.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No images match the selected filters.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var image in visibleImages)
+                    {
+                        <tr>
+                            <td>@image.Repository</td>
+                            <td><span class="badge text-bg-secondary">@image.Tag</span></td>
+                            <td><code>@image.ID</code></td>
+                            <td>@image.Containers</td>
+                            <td>@image.CreatedSince</td>
+                            <td>@image.Size</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">CVE filters</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Search CVE/package</label>
+                <input class="form-control" @bind="cveSearchText" @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Severity</label>
+                <select class="form-select" @bind="selectedSeverity">
+                    <option value="All">All</option>
+                    @foreach (var severity in severities)
+                    {
+                        <option value="@severity">@severity</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">CVE findings from `test.json`</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>CVE</th>
+                    <th>Severity</th>
+                    <th>Package</th>
+                    <th>Affected range</th>
+                    <th>Fixed version</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (visibleCves.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No CVEs match the selected filters.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var cve in visibleCves)
+                    {
+                        <tr>
+                            <td><code>@cve.Id</code></td>
+                            <td><span class="badge @GetSeverityBadgeClass(cve.Severity)">@cve.Severity</span></td>
+                            <td class="text-break"><small>@cve.Package</small></td>
+                            <td>@cve.AffectedRange</td>
+                            <td>@cve.FixedVersion</td>
+                            <td>@cve.SecuritySeverityScore.ToString("0.0")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> allImages = [];
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveFinding> cveFindings = [];
+
+    private string imageSearchText = string.Empty;
+    private string selectedRepository = "All";
+    private string selectedTag = "All";
+    private string containerFilter = "All";
+
+    private string cveSearchText = string.Empty;
+    private string selectedSeverity = "All";
+
+    private IReadOnlyList<string> repositories = [];
+    private IReadOnlyList<string> tags = [];
+    private IReadOnlyList<string> severities = [];
+
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> visibleImages => allImages.Where(MatchesImageFilter).ToList();
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveFinding> visibleCves => cveFindings.Where(MatchesCveFilter).ToList();
+
+    protected override void OnInitialized()
+    {
+        allImages = DockerImageInventory.GetImages();
+        cveFindings = DockerImageInventory.GetCveFindings();
+
+        repositories = allImages
+            .Select(image => image.Repository)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        tags = allImages
+            .Select(image => image.Tag)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        severities = cveFindings
+            .Select(cve => cve.Severity)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(GetSeverityRank)
+            .ToList();
+    }
+
+    private bool MatchesImageFilter(SecurityCVEDashboard.Models.DockerImageInfo image)
+    {
+        if (!selectedRepository.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.Repository.Equals(selectedRepository, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedTag.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.Tag.Equals(selectedTag, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var containerCount = int.TryParse(image.Containers, out var parsed) ? parsed : 0;
+
+        if (containerFilter.Equals("InUse", StringComparison.OrdinalIgnoreCase) && containerCount <= 0)
+        {
+            return false;
+        }
+
+        if (containerFilter.Equals("Unused", StringComparison.OrdinalIgnoreCase) && containerCount > 0)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(imageSearchText))
+        {
+            var term = imageSearchText.Trim();
+            var searchable = $"{image.Repository} {image.Tag} {image.ID}";
+            if (!searchable.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool MatchesCveFilter(SecurityCVEDashboard.Models.CveFinding finding)
+    {
+        if (!selectedSeverity.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !finding.Severity.Equals(selectedSeverity, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(cveSearchText))
+        {
+            var term = cveSearchText.Trim();
+            var searchable = $"{finding.Id} {finding.Package}";
+            if (!searchable.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string GetSeverityBadgeClass(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => "text-bg-danger",
+        "HIGH" => "text-bg-danger",
+        "MEDIUM" => "text-bg-warning",
+        "LOW" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+
+    private static int GetSeverityRank(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => 4,
+        "HIGH" => 3,
+        "MEDIUM" => 2,
+        "LOW" => 1,
+        _ => 0
+    };
+}

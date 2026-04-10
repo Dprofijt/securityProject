@@ -1,0 +1,136 @@
+﻿@page "/"
+@inject SecurityCVEDashboard.Services.DockerImageInventoryService DockerImageInventory
+
+<PageTitle>Container Dashboard</PageTitle>
+
+<h1>Container Image Dashboard</h1>
+<p class="text-body-secondary">Data source: local `test.json` (Docker Scout SARIF) + container inventory.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Total images</h2>
+                <div class="display-6">@allImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Filtered containers</h2>
+                <div class="display-6">@filteredImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Found CVEs</h2>
+                <div class="display-6">@cveFindings.Count</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Filtered container images</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Containers</th>
+                    <th>Created</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (filteredImages.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No filtered images available from current input.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var image in filteredImages)
+                    {
+                        <tr>
+                            <td>@image.Repository</td>
+                            <td><span class="badge text-bg-secondary">@image.Tag</span></td>
+                            <td><code>@image.ID</code></td>
+                            <td>@image.Containers</td>
+                            <td>@image.CreatedSince</td>
+                            <td>@image.Size</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">CVE findings from `test.json`</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>CVE</th>
+                    <th>Severity</th>
+                    <th>Package</th>
+                    <th>Affected range</th>
+                    <th>Fixed version</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (cveFindings.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No CVEs found in `test.json`.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var cve in cveFindings)
+                    {
+                        <tr>
+                            <td><code>@cve.Id</code></td>
+                            <td><span class="badge @GetSeverityBadgeClass(cve.Severity)">@cve.Severity</span></td>
+                            <td class="text-break"><small>@cve.Package</small></td>
+                            <td>@cve.AffectedRange</td>
+                            <td>@cve.FixedVersion</td>
+                            <td>@cve.SecuritySeverityScore.ToString("0.0")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> allImages = [];
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> filteredImages = [];
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveFinding> cveFindings = [];
+
+    protected override void OnInitialized()
+    {
+        allImages = DockerImageInventory.GetImages();
+        cveFindings = DockerImageInventory.GetCveFindings();
+        filteredImages = DockerImageInventory.GetFilteredImages();
+    }
+
+    private static string GetSeverityBadgeClass(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => "text-bg-danger",
+        "HIGH" => "text-bg-danger",
+        "MEDIUM" => "text-bg-warning",
+        "LOW" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+}

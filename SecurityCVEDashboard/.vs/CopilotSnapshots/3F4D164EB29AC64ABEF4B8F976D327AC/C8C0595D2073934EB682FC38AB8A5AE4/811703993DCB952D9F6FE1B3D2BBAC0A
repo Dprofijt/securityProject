@@ -1,0 +1,503 @@
+﻿using System.Text.Json;
+using SecurityCVEDashboard.Models;
+
+namespace SecurityCVEDashboard.Services;
+
+public sealed class DockerImageInventoryService
+{
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private readonly string sarifFilePath;
+    private readonly ILogger<DockerImageInventoryService> logger;
+    private readonly object cacheLock = new();
+    private VulnerabilityAnalysisSnapshot? cachedSnapshot;
+    private DateTimeOffset cachedSnapshotAt;
+
+    public DockerImageInventoryService(IWebHostEnvironment environment, ILogger<DockerImageInventoryService> logger)
+    {
+        sarifFilePath = Path.Combine(environment.ContentRootPath, "test.json");
+        this.logger = logger;
+    }
+
+    private static readonly string[] SampleDockerImageLines =
+    [
+        "{\"Containers\":\"0\",\"CreatedAt\":\"2026-04-07 19:31:28 +0200 CEST\",\"CreatedSince\":\"2 days ago\",\"Digest\":\"<none>\",\"ID\":\"7f0adca1fc6c\",\"Repository\":\"nginx\",\"SharedSize\":\"N/A\",\"Size\":\"240MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\"}",
+        "{\"Containers\":\"1\",\"CreatedAt\":\"2026-04-05 08:10:12 +0200 CEST\",\"CreatedSince\":\"4 days ago\",\"Digest\":\"<none>\",\"ID\":\"9bb65ea2a0a1\",\"Repository\":\"redis\",\"SharedSize\":\"N/A\",\"Size\":\"117MB\",\"Tag\":\"7.2\",\"UniqueSize\":\"N/A\"}",
+        "{\"Containers\":\"0\",\"CreatedAt\":\"2026-04-01 12:44:07 +0200 CEST\",\"CreatedSince\":\"8 days ago\",\"Digest\":\"<none>\",\"ID\":\"b23df2234df5\",\"Repository\":\"postgres\",\"SharedSize\":\"N/A\",\"Size\":\"455MB\",\"Tag\":\"16\",\"UniqueSize\":\"N/A\"}"
+    ];
+
+    public IReadOnlyList<DockerImageInfo> GetImages()
+    {
+        var images = new List<DockerImageInfo>();
+
+        foreach (var line in SampleDockerImageLines)
+        {
+            var image = JsonSerializer.Deserialize<DockerImageInfo>(line, SerializerOptions);
+            if (image is not null)
+            {
+                images.Add(image);
+            }
+        }
+
+        return images;
+    }
+
+    public IReadOnlyList<CveFinding> GetCveFindings()
+    {
+        if (!File.Exists(sarifFilePath))
+        {
+            logger.LogWarning("SARIF file not found at path {Path}", sarifFilePath);
+            return [];
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(sarifFilePath);
+            using var document = JsonDocument.Parse(stream);
+
+            var rulesById = new Dictionary<string, (string Severity, string Package, string AffectedRange, string FixedVersion, double SecurityScore)>(StringComparer.OrdinalIgnoreCase);
+
+            if (document.RootElement.TryGetProperty("runs", out var runsElement) && runsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var run in runsElement.EnumerateArray())
+                {
+                    if (!run.TryGetProperty("tool", out var toolElement) || !toolElement.TryGetProperty("driver", out var driverElement))
+                    {
+                        continue;
+                    }
+
+                    if (!driverElement.TryGetProperty("rules", out var rulesElement) || rulesElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var rule in rulesElement.EnumerateArray())
+                    {
+                        if (!rule.TryGetProperty("id", out var idElement))
+                        {
+                            continue;
+                        }
+
+                        var id = idElement.GetString() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(id))
+                        {
+                            continue;
+                        }
+
+                        string severity = "UNSPECIFIED";
+                        string package = string.Empty;
+                        string affectedRange = string.Empty;
+                        string fixedVersion = string.Empty;
+                        double securityScore = 0;
+
+                        if (rule.TryGetProperty("properties", out var propertiesElement))
+                        {
+                            if (propertiesElement.TryGetProperty("cvssV3_severity", out var cvssSeverityElement))
+                            {
+                                severity = cvssSeverityElement.GetString() ?? severity;
+                            }
+
+                            if (propertiesElement.TryGetProperty("purls", out var purlsElement) && purlsElement.ValueKind == JsonValueKind.Array)
+                            {
+                                package = purlsElement.EnumerateArray().FirstOrDefault().GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("affected_version", out var affectedVersionElement))
+                            {
+                                affectedRange = affectedVersionElement.GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("fixed_version", out var fixedVersionElement))
+                            {
+                                fixedVersion = fixedVersionElement.GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("security-severity", out var securitySeverityElement)
+                                && double.TryParse(securitySeverityElement.GetString(), out var parsedScore))
+                            {
+                                securityScore = parsedScore;
+                            }
+                        }
+
+                        rulesById[id] = (severity, package, affectedRange, fixedVersion, securityScore);
+                    }
+                }
+            }
+
+            var findings = new Dictionary<string, CveFinding>(StringComparer.OrdinalIgnoreCase);
+
+            if (document.RootElement.TryGetProperty("runs", out var runsWithResults) && runsWithResults.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var run in runsWithResults.EnumerateArray())
+                {
+                    if (!run.TryGetProperty("results", out var resultsElement) || resultsElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var result in resultsElement.EnumerateArray())
+                    {
+                        if (!result.TryGetProperty("ruleId", out var ruleIdElement))
+                        {
+                            continue;
+                        }
+
+                        var ruleId = ruleIdElement.GetString() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(ruleId) || findings.ContainsKey(ruleId))
+                        {
+                            continue;
+                        }
+
+                        rulesById.TryGetValue(ruleId, out var ruleInfo);
+                        var severity = NormalizeSeverity(ruleInfo.Severity, result);
+
+                        findings[ruleId] = new CveFinding
+                        {
+                            Id = ruleId,
+                            Severity = severity,
+                            Package = ruleInfo.Package,
+                            AffectedRange = ruleInfo.AffectedRange,
+                            FixedVersion = ruleInfo.FixedVersion,
+                            SecuritySeverityScore = ruleInfo.SecurityScore
+                        };
+                    }
+                }
+            }
+
+            return findings.Values
+                .OrderByDescending(finding => GetSeverityRank(finding.Severity))
+                .ThenByDescending(finding => finding.SecuritySeverityScore)
+                .ThenBy(finding => finding.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to parse SARIF CVE data from {Path}", sarifFilePath);
+            return [];
+        }
+    }
+
+    public VulnerabilityAnalysisSnapshot GetVulnerabilityAnalysisSnapshot(bool forceRefresh = false)
+    {
+        if (!forceRefresh)
+        {
+            lock (cacheLock)
+            {
+                if (cachedSnapshot is not null && DateTimeOffset.UtcNow - cachedSnapshotAt < TimeSpan.FromMinutes(2))
+                {
+                    return cachedSnapshot;
+                }
+            }
+        }
+
+        var findings = GetCveFindings();
+        if (findings.Count == 0)
+        {
+            var emptySnapshot = new VulnerabilityAnalysisSnapshot
+            {
+                GeneratedAt = DateTimeOffset.UtcNow
+            };
+
+            lock (cacheLock)
+            {
+                cachedSnapshot = emptySnapshot;
+                cachedSnapshotAt = DateTimeOffset.UtcNow;
+            }
+
+            return emptySnapshot;
+        }
+
+        var records = findings
+            .Select(ToRecord)
+            .ToList();
+
+        var linkedGroups = BuildLinkedGroups(records);
+        var linkedByCve = linkedGroups
+            .SelectMany(group => group.CveIds.Select(id => (Id: id, Group: group)))
+            .ToDictionary(entry => entry.Id, entry => entry.Group, StringComparer.OrdinalIgnoreCase);
+
+        var adjustedRecords = records
+            .Select(record =>
+            {
+                if (!linkedByCve.TryGetValue(record.Id, out var group))
+                {
+                    return new CveRecord
+                    {
+                        Id = record.Id,
+                        Severity = record.Severity,
+                        EffectiveSeverity = record.Severity,
+                        Package = record.Package,
+                        PackageName = record.PackageName,
+                        Version = record.Version,
+                        AffectedRange = record.AffectedRange,
+                        FixedVersion = record.FixedVersion,
+                        CvssScore = record.CvssScore,
+                        AdjustedScore = record.CvssScore,
+                        References = record.References
+                    };
+                }
+
+                var effectiveSeverity = MaxSeverity(record.Severity, group.EscalatedSeverity);
+                var adjustedScore = record.CvssScore + Math.Min(2.5, Math.Max(0, group.Count - 1) * 0.5);
+
+                return new CveRecord
+                {
+                    Id = record.Id,
+                    Severity = record.Severity,
+                    EffectiveSeverity = effectiveSeverity,
+                    Package = record.Package,
+                    PackageName = record.PackageName,
+                    Version = record.Version,
+                    AffectedRange = record.AffectedRange,
+                    FixedVersion = record.FixedVersion,
+                    CvssScore = record.CvssScore,
+                    AdjustedScore = adjustedScore,
+                    References = record.References
+                };
+            })
+            .OrderByDescending(record => GetSeverityRank(record.EffectiveSeverity))
+            .ThenByDescending(record => record.AdjustedScore)
+            .ThenBy(record => record.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var imageCandidates = GetImages()
+            .Where(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0)
+            .ToList();
+
+        if (imageCandidates.Count == 0)
+        {
+            imageCandidates = GetImages().ToList();
+        }
+
+        var imageReports = imageCandidates
+            .Select(image => BuildImageReport(image, adjustedRecords))
+            .OrderByDescending(report => report.RiskScore)
+            .ThenBy(report => report.Repository, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(report => report.Tag, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var allLinkedRecords = imageReports
+            .SelectMany(report => report.Vulnerabilities)
+            .DistinctBy(record => record.Id)
+            .ToList();
+
+        var snapshot = new VulnerabilityAnalysisSnapshot
+        {
+            GeneratedAt = DateTimeOffset.UtcNow,
+            ImageReports = imageReports,
+            LinkedGroups = linkedGroups,
+            TotalVulnerabilities = allLinkedRecords.Count,
+            CriticalCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase)),
+            HighCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("HIGH", StringComparison.OrdinalIgnoreCase)),
+            MediumCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase)),
+            LowCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("LOW", StringComparison.OrdinalIgnoreCase)),
+            TopVulnerablePackages = allLinkedRecords
+                .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+                .GroupBy(record => record.PackageName, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .Select(group => $"{group.Key} ({group.Count()})")
+                .ToList()
+        };
+
+        lock (cacheLock)
+        {
+            cachedSnapshot = snapshot;
+            cachedSnapshotAt = DateTimeOffset.UtcNow;
+        }
+
+        return snapshot;
+    }
+
+    public IReadOnlyList<DockerImageInfo> GetFilteredImages()
+    {
+        var findings = GetCveFindings();
+        if (findings.Count == 0)
+        {
+            return [];
+        }
+
+        return GetImages()
+            .Where(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0)
+            .ToList();
+    }
+
+    private static CveRecord ToRecord(CveFinding finding)
+    {
+        var packageName = ParsePackageName(finding.Package);
+        var version = ParsePackageVersion(finding.Package);
+
+        return new CveRecord
+        {
+            Id = finding.Id,
+            Severity = finding.Severity,
+            EffectiveSeverity = finding.Severity,
+            Package = finding.Package,
+            PackageName = packageName,
+            Version = version,
+            AffectedRange = finding.AffectedRange,
+            FixedVersion = finding.FixedVersion,
+            CvssScore = finding.SecuritySeverityScore,
+            AdjustedScore = finding.SecuritySeverityScore,
+            References = []
+        };
+    }
+
+    private static IReadOnlyList<LinkedVulnerabilityGroup> BuildLinkedGroups(IReadOnlyList<CveRecord> records)
+    {
+        return records
+            .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+            .GroupBy(
+                record => $"{record.PackageName}|{record.AffectedRange}|{record.FixedVersion}",
+                StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group =>
+            {
+                var highestSeverity = group
+                    .Select(record => record.Severity)
+                    .OrderByDescending(GetSeverityRank)
+                    .FirstOrDefault() ?? "UNSPECIFIED";
+
+                return new LinkedVulnerabilityGroup
+                {
+                    Key = group.Key,
+                    PackageName = group.First().PackageName,
+                    AffectedRange = group.First().AffectedRange,
+                    FixedVersion = group.First().FixedVersion,
+                    Count = group.Count(),
+                    CveIds = group.Select(record => record.Id).Order(StringComparer.OrdinalIgnoreCase).ToList(),
+                    EscalatedSeverity = EscalateSeverity(highestSeverity, group.Count())
+                };
+            })
+            .OrderByDescending(group => GetSeverityRank(group.EscalatedSeverity))
+            .ThenByDescending(group => group.Count)
+            .ThenBy(group => group.PackageName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static ImageCveReport BuildImageReport(DockerImageInfo image, IReadOnlyList<CveRecord> adjustedRecords)
+    {
+        var vulnerabilities = adjustedRecords.ToList();
+
+        return new ImageCveReport
+        {
+            ImageId = image.ID,
+            Repository = image.Repository,
+            Tag = image.Tag,
+            Vulnerabilities = vulnerabilities,
+            TotalVulnerabilities = vulnerabilities.Count,
+            CriticalCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase)),
+            HighCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("HIGH", StringComparison.OrdinalIgnoreCase)),
+            MediumCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase)),
+            LowCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("LOW", StringComparison.OrdinalIgnoreCase)),
+            RiskScore = vulnerabilities.Sum(record => record.AdjustedScore),
+            TopVulnerablePackages = vulnerabilities
+                .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+                .GroupBy(record => record.PackageName, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .Select(group => $"{group.Key} ({group.Count()})")
+                .ToList()
+        };
+    }
+
+    private static string ParsePackageName(string package)
+    {
+        if (string.IsNullOrWhiteSpace(package))
+        {
+            return string.Empty;
+        }
+
+        var path = package;
+        var queryIndex = path.IndexOf('?', StringComparison.Ordinal);
+        if (queryIndex >= 0)
+        {
+            path = path[..queryIndex];
+        }
+
+        var atIndex = path.LastIndexOf('@');
+        if (atIndex >= 0)
+        {
+            path = path[..atIndex];
+        }
+
+        var slashIndex = path.LastIndexOf('/');
+        return slashIndex >= 0 ? path[(slashIndex + 1)..] : path;
+    }
+
+    private static string ParsePackageVersion(string package)
+    {
+        if (string.IsNullOrWhiteSpace(package))
+        {
+            return string.Empty;
+        }
+
+        var path = package;
+        var queryIndex = path.IndexOf('?', StringComparison.Ordinal);
+        if (queryIndex >= 0)
+        {
+            path = path[..queryIndex];
+        }
+
+        var atIndex = path.LastIndexOf('@');
+        return atIndex >= 0 && atIndex < path.Length - 1 ? path[(atIndex + 1)..] : string.Empty;
+    }
+
+    private static string EscalateSeverity(string severity, int linkedCount)
+    {
+        if (linkedCount <= 2)
+        {
+            return severity;
+        }
+
+        return severity.ToUpperInvariant() switch
+        {
+            "LOW" => "MEDIUM",
+            "MEDIUM" => "HIGH",
+            "HIGH" => linkedCount >= 4 ? "CRITICAL" : "HIGH",
+            "CRITICAL" => "CRITICAL",
+            _ => "MEDIUM"
+        };
+    }
+
+    private static string MaxSeverity(string left, string right)
+    {
+        return GetSeverityRank(left) >= GetSeverityRank(right) ? left.ToUpperInvariant() : right.ToUpperInvariant();
+    }
+
+    private static string NormalizeSeverity(string ruleSeverity, JsonElement result)
+    {
+        if (!string.IsNullOrWhiteSpace(ruleSeverity) && !ruleSeverity.Equals("UNSPECIFIED", StringComparison.OrdinalIgnoreCase))
+        {
+            return ruleSeverity.ToUpperInvariant();
+        }
+
+        if (result.TryGetProperty("level", out var levelElement))
+        {
+            var level = levelElement.GetString();
+            return level?.ToLowerInvariant() switch
+            {
+                "error" => "HIGH",
+                "warning" => "MEDIUM",
+                "note" => "LOW",
+                _ => "UNSPECIFIED"
+            };
+        }
+
+        return "UNSPECIFIED";
+    }
+
+    private static int GetSeverityRank(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => 4,
+        "HIGH" => 3,
+        "MEDIUM" => 2,
+        "LOW" => 1,
+        _ => 0
+    };
+}

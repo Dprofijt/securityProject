@@ -1,0 +1,353 @@
+﻿@page "/"
+@inject SecurityCVEDashboard.Services.DockerImageInventoryService DockerImageInventory
+
+<PageTitle>Container Dashboard</PageTitle>
+
+<h1>Container Image Dashboard</h1>
+<p class="text-body-secondary">Data source: local `test.json` (Docker Scout SARIF) + container inventory.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Total images</h2>
+                <div class="display-6">@allImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Visible images</h2>
+                <div class="display-6">@visibleImages.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Visible CVEs</h2>
+                <div class="display-6">@visibleCves.Count</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Container/Image filters (dropdown only)</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Repository</label>
+                <select class="form-select" @bind="selectedRepository">
+                    <option value="All">All</option>
+                    @foreach (var repository in repositories)
+                    {
+                        <option value="@repository">@repository</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tag</label>
+                <select class="form-select" @bind="selectedTag">
+                    <option value="All">All</option>
+                    @foreach (var tag in tags)
+                    {
+                        <option value="@tag">@tag</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Image ID</label>
+                <select class="form-select" @bind="selectedImageId">
+                    <option value="All">All</option>
+                    @foreach (var imageId in imageIds)
+                    {
+                        <option value="@imageId">@imageId</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Containers</label>
+                <select class="form-select" @bind="selectedContainerCount">
+                    <option value="All">All</option>
+                    @foreach (var containerCount in containerCounts)
+                    {
+                        <option value="@containerCount">@containerCount</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Container state</label>
+                <select class="form-select" @bind="containerFilter">
+                    <option value="All">All</option>
+                    <option value="InUse">In use (&gt; 0)</option>
+                    <option value="Unused">Unused (= 0)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Filtered container images</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Containers</th>
+                    <th>Created</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (visibleImages.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No images match the selected filters.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var image in visibleImages)
+                    {
+                        <tr>
+                            <td>@image.Repository</td>
+                            <td><span class="badge text-bg-secondary">@image.Tag</span></td>
+                            <td><code>@image.ID</code></td>
+                            <td>@image.Containers</td>
+                            <td>@image.CreatedSince</td>
+                            <td>@image.Size</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header fw-semibold">CVE filters (from `test.json`)</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">CVE ID</label>
+                <select class="form-select" @bind="selectedCveId">
+                    <option value="All">All</option>
+                    @foreach (var cveId in cveIds)
+                    {
+                        <option value="@cveId">@cveId</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Severity</label>
+                <select class="form-select" @bind="selectedSeverity">
+                    <option value="All">All</option>
+                    @foreach (var severity in severities)
+                    {
+                        <option value="@severity">@severity</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Package</label>
+                <select class="form-select" @bind="selectedPackage">
+                    <option value="All">All</option>
+                    @foreach (var package in packages)
+                    {
+                        <option value="@package">@package</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Fixed version</label>
+                <select class="form-select" @bind="selectedFixedVersion">
+                    <option value="All">All</option>
+                    @foreach (var fixedVersion in fixedVersions)
+                    {
+                        <option value="@fixedVersion">@fixedVersion</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">CVE findings from `test.json`</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>CVE</th>
+                    <th>Severity</th>
+                    <th>Package</th>
+                    <th>Affected range</th>
+                    <th>Fixed version</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (visibleCves.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-body-secondary">No CVEs match the selected filters.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var cve in visibleCves)
+                    {
+                        <tr>
+                            <td><code>@cve.Id</code></td>
+                            <td><span class="badge @GetSeverityBadgeClass(cve.Severity)">@cve.Severity</span></td>
+                            <td class="text-break"><small>@cve.Package</small></td>
+                            <td>@cve.AffectedRange</td>
+                            <td>@cve.FixedVersion</td>
+                            <td>@cve.SecuritySeverityScore.ToString("0.0")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> allImages = [];
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveFinding> cveFindings = [];
+
+    private string selectedRepository = "All";
+    private string selectedTag = "All";
+    private string selectedImageId = "All";
+    private string selectedContainerCount = "All";
+    private string containerFilter = "All";
+
+    private string selectedCveId = "All";
+    private string selectedSeverity = "All";
+    private string selectedPackage = "All";
+    private string selectedFixedVersion = "All";
+
+    private IReadOnlyList<string> repositories = [];
+    private IReadOnlyList<string> tags = [];
+    private IReadOnlyList<string> imageIds = [];
+    private IReadOnlyList<string> containerCounts = [];
+
+    private IReadOnlyList<string> cveIds = [];
+    private IReadOnlyList<string> severities = [];
+    private IReadOnlyList<string> packages = [];
+    private IReadOnlyList<string> fixedVersions = [];
+
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> visibleImages => allImages.Where(MatchesImageFilter).ToList();
+    private IReadOnlyList<SecurityCVEDashboard.Models.CveFinding> visibleCves => cveFindings.Where(MatchesCveFilter).ToList();
+
+    protected override void OnInitialized()
+    {
+        allImages = DockerImageInventory.GetImages();
+        cveFindings = DockerImageInventory.GetCveFindings();
+
+        repositories = allImages.Select(image => image.Repository).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        tags = allImages.Select(image => image.Tag).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        imageIds = allImages.Select(image => image.ID).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        containerCounts = allImages.Select(image => image.Containers).Where(NotBlank).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+
+        cveIds = cveFindings.Select(cve => cve.Id).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        severities = cveFindings.Select(cve => cve.Severity).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).OrderByDescending(GetSeverityRank).ToList();
+        packages = cveFindings.Select(cve => cve.Package).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        fixedVersions = cveFindings.Select(cve => cve.FixedVersion).Where(NotBlank).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private bool MatchesImageFilter(SecurityCVEDashboard.Models.DockerImageInfo image)
+    {
+        if (!selectedRepository.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.Repository.Equals(selectedRepository, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedTag.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.Tag.Equals(selectedTag, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedImageId.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.ID.Equals(selectedImageId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedContainerCount.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !image.Containers.Equals(selectedContainerCount, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var containerCount = int.TryParse(image.Containers, out var parsed) ? parsed : 0;
+
+        if (containerFilter.Equals("InUse", StringComparison.OrdinalIgnoreCase) && containerCount <= 0)
+        {
+            return false;
+        }
+
+        if (containerFilter.Equals("Unused", StringComparison.OrdinalIgnoreCase) && containerCount > 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool MatchesCveFilter(SecurityCVEDashboard.Models.CveFinding finding)
+    {
+        if (!selectedCveId.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !finding.Id.Equals(selectedCveId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedSeverity.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !finding.Severity.Equals(selectedSeverity, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedPackage.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !finding.Package.Equals(selectedPackage, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!selectedFixedVersion.Equals("All", StringComparison.OrdinalIgnoreCase)
+            && !finding.FixedVersion.Equals(selectedFixedVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool NotBlank(string value) => !string.IsNullOrWhiteSpace(value);
+
+    private static string GetSeverityBadgeClass(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => "text-bg-danger",
+        "HIGH" => "text-bg-danger",
+        "MEDIUM" => "text-bg-warning",
+        "LOW" => "text-bg-info",
+        _ => "text-bg-secondary"
+    };
+
+    private static int GetSeverityRank(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => 4,
+        "HIGH" => 3,
+        "MEDIUM" => 2,
+        "LOW" => 1,
+        _ => 0
+    };
+}

@@ -1,0 +1,78 @@
+﻿@page "/"
+@inject SecurityCVEDashboard.Services.DockerImageInventoryService DockerImageInventory
+
+<PageTitle>Container Dashboard</PageTitle>
+
+<h1>Container Image Dashboard</h1>
+<p class="text-body-secondary">Current inventory from local `docker image ls --all --format json` output.</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Total images</h2>
+                <div class="display-6">@images.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Images in use</h2>
+                <div class="display-6">@inUseCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-body-secondary mb-1">Unused images</h2>
+                <div class="display-6">@unusedCount</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header fw-semibold">Image inventory</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Tag</th>
+                    <th>Image ID</th>
+                    <th>Containers</th>
+                    <th>Created</th>
+                    <th>Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var image in images)
+                {
+                    <tr>
+                        <td>@image.Repository</td>
+                        <td><span class="badge text-bg-secondary">@image.Tag</span></td>
+                        <td><code>@image.ID</code></td>
+                        <td>@image.Containers</td>
+                        <td>@image.CreatedSince</td>
+                        <td>@image.Size</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<SecurityCVEDashboard.Models.DockerImageInfo> images = [];
+    private int inUseCount;
+    private int unusedCount;
+
+    protected override void OnInitialized()
+    {
+        images = DockerImageInventory.GetImages();
+        inUseCount = images.Count(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0);
+        unusedCount = images.Count - inUseCount;
+    }
+}
