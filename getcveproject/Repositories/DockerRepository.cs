@@ -16,12 +16,6 @@ public sealed class DockerRepository : IDockerRepository
         return GetAll<Container>(DockerCommands.DockerContainerList);
     }
 
-    public string GetScoutCvesNginxLatest()
-    {
-        var (ExitCode, StdOut, StdErr) = Run(DockerCommands.DockerScoutCvesNginxLatest);
-        return StdOut;
-    }
-
     public string GetScoutCves(string imageRef)
     {
         var (ExitCode, StdOut, StdErr) = Run(DockerCommands.DockerScoutCves(imageRef));
