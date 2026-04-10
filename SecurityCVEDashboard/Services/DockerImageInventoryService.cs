@@ -10,6 +10,15 @@ public sealed class DockerImageInventoryService
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly string sarifFilePath;
+    private readonly ILogger<DockerImageInventoryService> logger;
+
+    public DockerImageInventoryService(IWebHostEnvironment environment, ILogger<DockerImageInventoryService> logger)
+    {
+        sarifFilePath = Path.Combine(environment.ContentRootPath, "test.json");
+        this.logger = logger;
+    }
+
     private static readonly string[] SampleDockerImageLines =
     [
         "{\"Containers\":\"0\",\"CreatedAt\":\"2026-04-07 19:31:28 +0200 CEST\",\"CreatedSince\":\"2 days ago\",\"Digest\":\"<none>\",\"ID\":\"7f0adca1fc6c\",\"Repository\":\"nginx\",\"SharedSize\":\"N/A\",\"Size\":\"240MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\"}",
@@ -32,4 +41,183 @@ public sealed class DockerImageInventoryService
 
         return images;
     }
+
+    public IReadOnlyList<CveFinding> GetCveFindings()
+    {
+        if (!File.Exists(sarifFilePath))
+        {
+            logger.LogWarning("SARIF file not found at path {Path}", sarifFilePath);
+            return [];
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(sarifFilePath);
+            using var document = JsonDocument.Parse(stream);
+
+            var rulesById = new Dictionary<string, (string Severity, string Package, string AffectedRange, string FixedVersion, double SecurityScore)>(StringComparer.OrdinalIgnoreCase);
+
+            if (document.RootElement.TryGetProperty("runs", out var runsElement) && runsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var run in runsElement.EnumerateArray())
+                {
+                    if (!run.TryGetProperty("tool", out var toolElement) || !toolElement.TryGetProperty("driver", out var driverElement))
+                    {
+                        continue;
+                    }
+
+                    if (!driverElement.TryGetProperty("rules", out var rulesElement) || rulesElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var rule in rulesElement.EnumerateArray())
+                    {
+                        if (!rule.TryGetProperty("id", out var idElement))
+                        {
+                            continue;
+                        }
+
+                        var id = idElement.GetString() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(id))
+                        {
+                            continue;
+                        }
+
+                        string severity = "UNSPECIFIED";
+                        string package = string.Empty;
+                        string affectedRange = string.Empty;
+                        string fixedVersion = string.Empty;
+                        double securityScore = 0;
+
+                        if (rule.TryGetProperty("properties", out var propertiesElement))
+                        {
+                            if (propertiesElement.TryGetProperty("cvssV3_severity", out var cvssSeverityElement))
+                            {
+                                severity = cvssSeverityElement.GetString() ?? severity;
+                            }
+
+                            if (propertiesElement.TryGetProperty("purls", out var purlsElement) && purlsElement.ValueKind == JsonValueKind.Array)
+                            {
+                                package = purlsElement.EnumerateArray().FirstOrDefault().GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("affected_version", out var affectedVersionElement))
+                            {
+                                affectedRange = affectedVersionElement.GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("fixed_version", out var fixedVersionElement))
+                            {
+                                fixedVersion = fixedVersionElement.GetString() ?? string.Empty;
+                            }
+
+                            if (propertiesElement.TryGetProperty("security-severity", out var securitySeverityElement)
+                                && double.TryParse(securitySeverityElement.GetString(), out var parsedScore))
+                            {
+                                securityScore = parsedScore;
+                            }
+                        }
+
+                        rulesById[id] = (severity, package, affectedRange, fixedVersion, securityScore);
+                    }
+                }
+            }
+
+            var findings = new Dictionary<string, CveFinding>(StringComparer.OrdinalIgnoreCase);
+
+            if (document.RootElement.TryGetProperty("runs", out var runsWithResults) && runsWithResults.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var run in runsWithResults.EnumerateArray())
+                {
+                    if (!run.TryGetProperty("results", out var resultsElement) || resultsElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var result in resultsElement.EnumerateArray())
+                    {
+                        if (!result.TryGetProperty("ruleId", out var ruleIdElement))
+                        {
+                            continue;
+                        }
+
+                        var ruleId = ruleIdElement.GetString() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(ruleId) || findings.ContainsKey(ruleId))
+                        {
+                            continue;
+                        }
+
+                        rulesById.TryGetValue(ruleId, out var ruleInfo);
+                        var severity = NormalizeSeverity(ruleInfo.Severity, result);
+
+                        findings[ruleId] = new CveFinding
+                        {
+                            Id = ruleId,
+                            Severity = severity,
+                            Package = ruleInfo.Package,
+                            AffectedRange = ruleInfo.AffectedRange,
+                            FixedVersion = ruleInfo.FixedVersion,
+                            SecuritySeverityScore = ruleInfo.SecurityScore
+                        };
+                    }
+                }
+            }
+
+            return findings.Values
+                .OrderByDescending(finding => GetSeverityRank(finding.Severity))
+                .ThenByDescending(finding => finding.SecuritySeverityScore)
+                .ThenBy(finding => finding.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to parse SARIF CVE data from {Path}", sarifFilePath);
+            return [];
+        }
+    }
+
+    public IReadOnlyList<DockerImageInfo> GetFilteredImages()
+    {
+        var findings = GetCveFindings();
+        if (findings.Count == 0)
+        {
+            return [];
+        }
+
+        return GetImages()
+            .Where(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0)
+            .ToList();
+    }
+
+    private static string NormalizeSeverity(string ruleSeverity, JsonElement result)
+    {
+        if (!string.IsNullOrWhiteSpace(ruleSeverity) && !ruleSeverity.Equals("UNSPECIFIED", StringComparison.OrdinalIgnoreCase))
+        {
+            return ruleSeverity.ToUpperInvariant();
+        }
+
+        if (result.TryGetProperty("level", out var levelElement))
+        {
+            var level = levelElement.GetString();
+            return level?.ToLowerInvariant() switch
+            {
+                "error" => "HIGH",
+                "warning" => "MEDIUM",
+                "note" => "LOW",
+                _ => "UNSPECIFIED"
+            };
+        }
+
+        return "UNSPECIFIED";
+    }
+
+    private static int GetSeverityRank(string severity) => severity.ToUpperInvariant() switch
+    {
+        "CRITICAL" => 4,
+        "HIGH" => 3,
+        "MEDIUM" => 2,
+        "LOW" => 1,
+        _ => 0
+    };
 }

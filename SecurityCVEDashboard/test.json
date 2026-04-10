@@ -1,0 +1,951 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "fullName": "Docker Scout",
+          "informationUri": "https://docker.com/products/docker-scout",
+          "name": "docker scout",
+          "rules": [
+            {
+              "id": "CVE-2026-28387",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-28387"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-28387?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "UNSPECIFIED",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "3.1",
+                "tags": [
+                  "UNSPECIFIED"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-28388",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-28388"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-28388?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "UNSPECIFIED",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "3.1",
+                "tags": [
+                  "UNSPECIFIED"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-28389",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-28389"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-28389?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "UNSPECIFIED",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "3.1",
+                "tags": [
+                  "UNSPECIFIED"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-28390",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-28390"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-28390?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "UNSPECIFIED",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "3.1",
+                "tags": [
+                  "UNSPECIFIED"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-31789",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-31789"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-31789?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "UNSPECIFIED",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "3.1",
+                "tags": [
+                  "UNSPECIFIED"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2025-60876",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2025-60876"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2025-60876?s=alpine&n=busybox&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D1.37.0-r30",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                  |\n|----------------|------------------------------------------------------------------|\n| Package        | pkg:apk/alpine/busybox@1.37.0-r30?os_name=alpine&os_version=3.23 |\n| Affected range | <=1.37.0-r30                                                     |\n| Fixed version  | not fixed                                                        |\n"
+              },
+              "properties": {
+                "affected_version": "<=1.37.0-r30",
+                "cvssV3_severity": "MEDIUM",
+                "fixed_version": "not fixed",
+                "purls": [
+                  "pkg:apk/alpine/busybox@1.37.0-r30?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "6.5",
+                "tags": [
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-2673",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-2673"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-2673?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "HIGH",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "7.5",
+                "tags": [
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "CVE-2026-31790",
+              "name": "OsPackageVulnerability",
+              "shortDescription": {
+                "text": "CVE-2026-31790"
+              },
+              "helpUri": "https://scout.docker.com/v/CVE-2026-31790?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+              "help": {
+                "text": "\n",
+                "markdown": "> \n\n|                |                                                                |\n|----------------|----------------------------------------------------------------|\n| Package        | pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23 |\n| Affected range | <3.5.6-r0                                                      |\n| Fixed version  | 3.5.6-r0                                                       |\n"
+              },
+              "properties": {
+                "affected_version": "<3.5.6-r0",
+                "cvssV3_severity": "HIGH",
+                "fixed_version": "3.5.6-r0",
+                "purls": [
+                  "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+                ],
+                "security-severity": "7.5",
+                "tags": [
+                  "HIGH"
+                ]
+              }
+            }
+          ],
+          "version": "1.18.3"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CVE-2026-28387",
+          "ruleIndex": 0,
+          "kind": "fail",
+          "level": "none",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-28387                                                  \n  Severity        : UNSPECIFIED                                                     \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000200                                                        \n  EPSS Percentile : 0.054850                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-28388",
+          "ruleIndex": 1,
+          "kind": "fail",
+          "level": "none",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-28388                                                  \n  Severity        : UNSPECIFIED                                                     \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000110                                                        \n  EPSS Percentile : 0.014190                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-28389",
+          "ruleIndex": 2,
+          "kind": "fail",
+          "level": "none",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-28389                                                  \n  Severity        : UNSPECIFIED                                                     \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000290                                                        \n  EPSS Percentile : 0.084220                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-28390",
+          "ruleIndex": 3,
+          "kind": "fail",
+          "level": "none",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-28390                                                  \n  Severity        : UNSPECIFIED                                                     \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000290                                                        \n  EPSS Percentile : 0.084220                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-31789",
+          "ruleIndex": 4,
+          "kind": "fail",
+          "level": "none",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-31789                                                  \n  Severity        : UNSPECIFIED                                                     \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000110                                                        \n  EPSS Percentile : 0.012060                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2025-60876",
+          "ruleIndex": 5,
+          "kind": "fail",
+          "level": "warning",
+          "message": {
+            "text": "  Vulnerability   : CVE-2025-60876                                                    \n  Severity        : MEDIUM                                                            \n  Package         : pkg:apk/alpine/busybox@1.37.0-r30?os_name=alpine&os_version=3.23  \n  Affected range  : <=1.37.0-r30                                                      \n  Fixed version   : not fixed                                                         \n  EPSS Score      : 0.000430                                                          \n  EPSS Percentile : 0.133270                                                          \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/bin/busybox"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/busybox-paths.d/busybox"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/logrotate.d/acpid"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/network/if-up.d/dad"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/securetty"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/udhcpc/udhcpc.conf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/bin/ssl_client"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/share/udhcpc/default.script"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-2673",
+          "ruleIndex": 6,
+          "kind": "fail",
+          "level": "error",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-2673                                                   \n  Severity        : HIGH                                                            \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000450                                                        \n  EPSS Percentile : 0.137900                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "CVE-2026-31790",
+          "ruleIndex": 7,
+          "kind": "fail",
+          "level": "error",
+          "message": {
+            "text": "  Vulnerability   : CVE-2026-31790                                                  \n  Severity        : HIGH                                                            \n  Package         : pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \n  Affected range  : <3.5.6-r0                                                       \n  Fixed version   : 3.5.6-r0                                                        \n  EPSS Score      : 0.000210                                                        \n  EPSS Percentile : 0.056800                                                        \n"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/lib/apk/db/installed"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/ct_log_list.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/etc/ssl/openssl.cnf.dist"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/afalg.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/capi.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/loader_attic.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/engines-3/padlock.so"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libcrypto.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/libssl.so.3"
+                }
+              }
+            },
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/usr/lib/ossl-modules/legacy.so"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
