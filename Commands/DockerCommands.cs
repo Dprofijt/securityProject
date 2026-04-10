@@ -1,6 +1,6 @@
 namespace SecurityProject.Commands;
 
-public static class Commands
+public static class DockerCommands
 {
     public static readonly CommandSpec DockerImageList =
         new("docker", ["image", "ls", "--all", "--format", "json"]);

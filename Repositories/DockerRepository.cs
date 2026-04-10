@@ -1,22 +1,33 @@
 using System.Text.Json;
 using SecurityProject.Commands;
+using SecurityProject.Models;
 
 namespace SecurityProject.Repositories;
 
 public sealed class DockerRepository : IDockerRepository
 {
-    public List<T> GetAll<T>(CommandSpec command)
+    public List<Image> GetImages()
     {
-        var startInfo = ProcessStartInfoFactory.Create(command);
-        using var process = System.Diagnostics.Process.Start(startInfo);
-        if (process == null)
-            return [];
+        return GetAll<Image>(DockerCommands.DockerImageList);
+    }
 
-        var stdout = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
+    public List<Container> GetContainers()
+    {
+        return GetAll<Container>(DockerCommands.DockerContainerList);
+    }
+
+    public string GetScoutCvesNginxLatest()
+    {
+        var result = Run(DockerCommands.DockerScoutCvesNginxLatest);
+        return result.StdOut;
+    }
+
+    private static List<T> GetAll<T>(CommandSpec command)
+    {
+        var result = Run(command);
 
         var results = new List<T>();
-        var lines = stdout.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        var lines = result.StdOut.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
         {
             var item = JsonSerializer.Deserialize<T>(line);
@@ -25,5 +36,19 @@ public sealed class DockerRepository : IDockerRepository
         }
 
         return results;
+    }
+
+    private static (int ExitCode, string StdOut, string StdErr) Run(CommandSpec command)
+    {
+        var startInfo = ProcessStartInfoFactory.Create(command);
+        using var process = System.Diagnostics.Process.Start(startInfo);
+        if (process == null)
+            return (-1, string.Empty, "Failed to start docker process.");
+
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        return (process.ExitCode, stdout, stderr);
     }
 }
