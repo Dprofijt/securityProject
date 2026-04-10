@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SecurityProject.Models;
 using SecurityProject.Repositories;
 
 namespace SecurityProject.App;
@@ -18,24 +19,44 @@ public sealed class DockerApp
         var containers = _repo.GetContainers();
         var version = _repo.GetVersion();
 
+        foreach (var image in images)
+        {
+            var imageRef = BuildImageRef(image);
+            if (!string.IsNullOrWhiteSpace(imageRef))
+                image.ScoutReport = _repo.GetScoutCves(imageRef);
+        }
+
+        var docker = new Docker
+        {
+            Images = images,
+            Containers = containers,
+            Version = version?.Server?.Version ?? version?.Client?.Version
+        };
+
         var outputDir = Path.Combine(Environment.CurrentDirectory, "output");
         Directory.CreateDirectory(outputDir);
 
         var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
         File.WriteAllText(
-            Path.Combine(outputDir, "images.json"),
-            JsonSerializer.Serialize(images, jsonOptions));
-        File.WriteAllText(
-            Path.Combine(outputDir, "containers.json"),
-            JsonSerializer.Serialize(containers, jsonOptions));
-        File.WriteAllText(
-            Path.Combine(outputDir, "version.json"),
-            JsonSerializer.Serialize(version, jsonOptions));
+            Path.Combine(outputDir, "docker.json"),
+            JsonSerializer.Serialize(docker, jsonOptions));
 
         Console.WriteLine($"Loaded {images.Count} image(s).");
         foreach (var image in images)
             Console.WriteLine(image);
 
         return 0;
+    }
+
+    private static string? BuildImageRef(Image image)
+    {
+        if (!string.IsNullOrWhiteSpace(image.Repository))
+        {
+            var tag = string.IsNullOrWhiteSpace(image.Tag) ? "latest" : image.Tag;
+            if (image.Repository != "<none>")
+                return $"{image.Repository}:{tag}";
+        }
+
+        return string.IsNullOrWhiteSpace(image.Id) ? null : image.Id;
     }
 }

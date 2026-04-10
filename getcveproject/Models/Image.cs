@@ -34,6 +34,9 @@ public sealed class Image
     [JsonPropertyName("UniqueSize")]
     public string? UniqueSize { get; init; }
 
+    [JsonPropertyName("ScoutReport")]
+    public string? ScoutReport { get; set; }
+
     public override string ToString()
     {
         var repo = string.IsNullOrWhiteSpace(Repository) ? "<none>" : Repository;

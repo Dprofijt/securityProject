@@ -13,4 +13,7 @@ public static class DockerCommands
 
     public static readonly CommandSpec DockerVersion =
         new("docker", ["version", "--format", "json"]);
+
+    public static CommandSpec DockerScoutCves(string imageRef) =>
+        new("docker", ["scout", "cves", imageRef]);
 }

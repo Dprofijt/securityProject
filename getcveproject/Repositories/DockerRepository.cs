@@ -22,6 +22,12 @@ public sealed class DockerRepository : IDockerRepository
         return StdOut;
     }
 
+    public string GetScoutCves(string imageRef)
+    {
+        var (ExitCode, StdOut, StdErr) = Run(DockerCommands.DockerScoutCves(imageRef));
+        return StdOut;
+    }
+
     public DockerVersion? GetVersion()
     {
         return RunJson<DockerVersion>(DockerCommands.DockerVersion);
