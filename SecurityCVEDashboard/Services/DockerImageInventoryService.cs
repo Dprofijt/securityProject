@@ -12,6 +12,9 @@ public sealed class DockerImageInventoryService
 
     private readonly string sarifFilePath;
     private readonly ILogger<DockerImageInventoryService> logger;
+    private readonly object cacheLock = new();
+    private VulnerabilityAnalysisSnapshot? cachedSnapshot;
+    private DateTimeOffset cachedSnapshotAt;
 
     public DockerImageInventoryService(IWebHostEnvironment environment, ILogger<DockerImageInventoryService> logger)
     {
@@ -177,6 +180,139 @@ public sealed class DockerImageInventoryService
         }
     }
 
+    public VulnerabilityAnalysisSnapshot GetVulnerabilityAnalysisSnapshot(bool forceRefresh = false)
+    {
+        if (!forceRefresh)
+        {
+            lock (cacheLock)
+            {
+                if (cachedSnapshot is not null && DateTimeOffset.UtcNow - cachedSnapshotAt < TimeSpan.FromMinutes(2))
+                {
+                    return cachedSnapshot;
+                }
+            }
+        }
+
+        var findings = GetCveFindings();
+        if (findings.Count == 0)
+        {
+            var emptySnapshot = new VulnerabilityAnalysisSnapshot
+            {
+                GeneratedAt = DateTimeOffset.UtcNow
+            };
+
+            lock (cacheLock)
+            {
+                cachedSnapshot = emptySnapshot;
+                cachedSnapshotAt = DateTimeOffset.UtcNow;
+            }
+
+            return emptySnapshot;
+        }
+
+        var records = findings
+            .Select(ToRecord)
+            .ToList();
+
+        var linkedGroups = BuildLinkedGroups(records);
+        var linkedByCve = linkedGroups
+            .SelectMany(group => group.CveIds.Select(id => (Id: id, Group: group)))
+            .ToDictionary(entry => entry.Id, entry => entry.Group, StringComparer.OrdinalIgnoreCase);
+
+        var adjustedRecords = records
+            .Select(record =>
+            {
+                if (!linkedByCve.TryGetValue(record.Id, out var group))
+                {
+                    return new CveRecord
+                    {
+                        Id = record.Id,
+                        Severity = record.Severity,
+                        EffectiveSeverity = record.Severity,
+                        Package = record.Package,
+                        PackageName = record.PackageName,
+                        Version = record.Version,
+                        AffectedRange = record.AffectedRange,
+                        FixedVersion = record.FixedVersion,
+                        CvssScore = record.CvssScore,
+                        AdjustedScore = record.CvssScore,
+                        References = record.References
+                    };
+                }
+
+                var effectiveSeverity = MaxSeverity(record.Severity, group.EscalatedSeverity);
+                var adjustedScore = record.CvssScore + Math.Min(2.5, Math.Max(0, group.Count - 1) * 0.5);
+
+                return new CveRecord
+                {
+                    Id = record.Id,
+                    Severity = record.Severity,
+                    EffectiveSeverity = effectiveSeverity,
+                    Package = record.Package,
+                    PackageName = record.PackageName,
+                    Version = record.Version,
+                    AffectedRange = record.AffectedRange,
+                    FixedVersion = record.FixedVersion,
+                    CvssScore = record.CvssScore,
+                    AdjustedScore = adjustedScore,
+                    References = record.References
+                };
+            })
+            .OrderByDescending(record => GetSeverityRank(record.EffectiveSeverity))
+            .ThenByDescending(record => record.AdjustedScore)
+            .ThenBy(record => record.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var imageCandidates = GetImages()
+            .Where(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0)
+            .ToList();
+
+        if (imageCandidates.Count == 0)
+        {
+            imageCandidates = GetImages().ToList();
+        }
+
+        var imageReports = imageCandidates
+            .Select(image => BuildImageReport(image, adjustedRecords))
+            .OrderByDescending(report => report.RiskScore)
+            .ThenBy(report => report.Repository, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(report => report.Tag, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var allLinkedRecords = imageReports
+            .SelectMany(report => report.Vulnerabilities)
+            .DistinctBy(record => record.Id)
+            .ToList();
+
+        var snapshot = new VulnerabilityAnalysisSnapshot
+        {
+            GeneratedAt = DateTimeOffset.UtcNow,
+            ImageReports = imageReports,
+            LinkedGroups = linkedGroups,
+            TotalVulnerabilities = allLinkedRecords.Count,
+            CriticalCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase)),
+            HighCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("HIGH", StringComparison.OrdinalIgnoreCase)),
+            MediumCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase)),
+            LowCount = allLinkedRecords.Count(record => record.EffectiveSeverity.Equals("LOW", StringComparison.OrdinalIgnoreCase)),
+            TopVulnerablePackages = allLinkedRecords
+                .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+                .GroupBy(record => record.PackageName, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Take(5)
+                .Select(group => $"{group.Key} ({group.Count()})")
+                .ToList()
+        };
+
+        lock (cacheLock)
+        {
+            cachedSnapshot = snapshot;
+            cachedSnapshotAt = DateTimeOffset.UtcNow;
+        }
+
+        return snapshot;
+    }
+
     public IReadOnlyList<DockerImageInfo> GetFilteredImages()
     {
         var findings = GetCveFindings();
@@ -188,6 +324,187 @@ public sealed class DockerImageInventoryService
         return GetImages()
             .Where(image => int.TryParse(image.Containers, out var containerCount) && containerCount > 0)
             .ToList();
+    }
+
+    private static CveRecord ToRecord(CveFinding finding)
+    {
+        var packageName = ParsePackageName(finding.Package);
+        var version = ParsePackageVersion(finding.Package);
+
+        return new CveRecord
+        {
+            Id = finding.Id,
+            Severity = finding.Severity,
+            EffectiveSeverity = finding.Severity,
+            Package = finding.Package,
+            PackageName = packageName,
+            Version = version,
+            AffectedRange = finding.AffectedRange,
+            FixedVersion = finding.FixedVersion,
+            CvssScore = finding.SecuritySeverityScore,
+            AdjustedScore = finding.SecuritySeverityScore,
+            References = []
+        };
+    }
+
+    private static IReadOnlyList<LinkedVulnerabilityGroup> BuildLinkedGroups(IReadOnlyList<CveRecord> records)
+    {
+        return records
+            .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+            .GroupBy(
+                record => $"{record.PackageName}|{record.AffectedRange}|{record.FixedVersion}",
+                StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group =>
+            {
+                var groupRecords = group.ToList();
+                var highestSeverity = groupRecords
+                    .Select(record => record.Severity)
+                    .OrderByDescending(GetSeverityRank)
+                    .FirstOrDefault() ?? "UNSPECIFIED";
+
+                var chainAssessment = AssessExploitChain(groupRecords);
+
+                return new LinkedVulnerabilityGroup
+                {
+                    Key = group.Key,
+                    PackageName = groupRecords.First().PackageName,
+                    AffectedRange = groupRecords.First().AffectedRange,
+                    FixedVersion = groupRecords.First().FixedVersion,
+                    Count = groupRecords.Count,
+                    CveIds = groupRecords.Select(record => record.Id).Order(StringComparer.OrdinalIgnoreCase).ToList(),
+                    EscalatedSeverity = EscalateSeverity(highestSeverity, groupRecords.Count, chainAssessment.IsCriticalChain),
+                    IsCriticalChain = chainAssessment.IsCriticalChain,
+                    ChainAssessment = chainAssessment.Reason
+                };
+            })
+            .OrderByDescending(group => GetSeverityRank(group.EscalatedSeverity))
+            .ThenByDescending(group => group.Count)
+            .ThenBy(group => group.PackageName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static ImageCveReport BuildImageReport(DockerImageInfo image, IReadOnlyList<CveRecord> adjustedRecords)
+    {
+        var vulnerabilities = adjustedRecords.ToList();
+
+        return new ImageCveReport
+        {
+            ImageId = image.ID,
+            Repository = image.Repository,
+            Tag = image.Tag,
+            Vulnerabilities = vulnerabilities,
+            TotalVulnerabilities = vulnerabilities.Count,
+            CriticalCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("CRITICAL", StringComparison.OrdinalIgnoreCase)),
+            HighCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("HIGH", StringComparison.OrdinalIgnoreCase)),
+            MediumCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("MEDIUM", StringComparison.OrdinalIgnoreCase)),
+            LowCount = vulnerabilities.Count(record => record.EffectiveSeverity.Equals("LOW", StringComparison.OrdinalIgnoreCase)),
+            RiskScore = vulnerabilities.Sum(record => record.AdjustedScore),
+            TopVulnerablePackages = vulnerabilities
+                .Where(record => !string.IsNullOrWhiteSpace(record.PackageName))
+                .GroupBy(record => record.PackageName, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .Select(group => $"{group.Key} ({group.Count()})")
+                .ToList()
+        };
+    }
+
+    private static string ParsePackageName(string package)
+    {
+        if (string.IsNullOrWhiteSpace(package))
+        {
+            return string.Empty;
+        }
+
+        var path = package;
+        var queryIndex = path.IndexOf("?", StringComparison.Ordinal);
+        if (queryIndex >= 0)
+        {
+            path = path[..queryIndex];
+        }
+
+        var atIndex = path.LastIndexOf('@');
+        if (atIndex >= 0)
+        {
+            path = path[..atIndex];
+        }
+
+        var slashIndex = path.LastIndexOf('/');
+        return slashIndex >= 0 ? path[(slashIndex + 1)..] : path;
+    }
+
+    private static string ParsePackageVersion(string package)
+    {
+        if (string.IsNullOrWhiteSpace(package))
+        {
+            return string.Empty;
+        }
+
+        var path = package;
+        var queryIndex = path.IndexOf("?", StringComparison.Ordinal);
+        if (queryIndex >= 0)
+        {
+            path = path[..queryIndex];
+        }
+
+        var atIndex = path.LastIndexOf('@');
+        return atIndex >= 0 && atIndex < path.Length - 1 ? path[(atIndex + 1)..] : string.Empty;
+    }
+
+    private static (bool IsCriticalChain, string Reason) AssessExploitChain(IReadOnlyList<CveRecord> records)
+    {
+        if (records.Count < 3)
+        {
+            return (false, "Chain threshold not met (requires at least 3 related CVEs).");
+        }
+
+        var weightedSeverity = records.Sum(record => record.Severity.ToUpperInvariant() switch
+        {
+            "HIGH" => 3,
+            "MEDIUM" => 2,
+            "LOW" => 1,
+            "CRITICAL" => 4,
+            _ => 0
+        });
+
+        // Combination threshold: 3+ related CVEs with enough combined impact.
+        // Examples that become critical: HIGH+LOW+LOW, MEDIUM+MEDIUM+MEDIUM, HIGH+MEDIUM+LOW.
+        var isCriticalChain = weightedSeverity >= 7;
+        if (!isCriticalChain)
+        {
+            return (false, $"Chain detected ({records.Count} CVEs) but combined impact score {weightedSeverity} is below critical threshold.");
+        }
+
+        return (true, $"Exploit-chain critical: {records.Count} related CVEs with combined impact score {weightedSeverity}.");
+    }
+
+    private static string EscalateSeverity(string severity, int linkedCount, bool isCriticalChain)
+    {
+        if (isCriticalChain)
+        {
+            return "CRITICAL";
+        }
+
+        if (linkedCount <= 2)
+        {
+            return severity;
+        }
+
+        return severity.ToUpperInvariant() switch
+        {
+            "LOW" => "MEDIUM",
+            "MEDIUM" => "HIGH",
+            "HIGH" => linkedCount >= 4 ? "CRITICAL" : "HIGH",
+            "CRITICAL" => "CRITICAL",
+            _ => "MEDIUM"
+        };
+    }
+
+    private static string MaxSeverity(string left, string right)
+    {
+        return GetSeverityRank(left) >= GetSeverityRank(right) ? left.ToUpperInvariant() : right.ToUpperInvariant();
     }
 
     private static string NormalizeSeverity(string ruleSeverity, JsonElement result)
