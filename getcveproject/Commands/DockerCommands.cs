@@ -13,4 +13,7 @@ public static class DockerCommands
 
     public static CommandSpec DockerScoutCves(string imageRef) =>
         new("docker", ["scout", "cves", "--format", "sarif", imageRef]);
+
+    public static CommandSpec DockerScoutSbom(string imageRef) =>
+        new("docker", ["scout", "sbom", "--format", "json", imageRef]);
 }

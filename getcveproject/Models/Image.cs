@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SecurityProject.Models;
@@ -36,6 +37,9 @@ public sealed class Image
 
     [JsonPropertyName("ScoutReport")]
     public string? ScoutReport { get; set; }
+
+    [JsonPropertyName("Sbom")]
+    public JsonDocument? Sbom { get; set; }
 
     public override string ToString()
     {
