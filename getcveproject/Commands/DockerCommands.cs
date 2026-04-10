@@ -8,12 +8,9 @@ public static class DockerCommands
     public static readonly CommandSpec DockerContainerList =
         new("docker", ["container", "ls", "--all", "--format", "json"]);
 
-    public static readonly CommandSpec DockerScoutCvesNginxLatest =
-        new("docker", ["scout", "cves", "nginx:latest"]);
-
     public static readonly CommandSpec DockerVersion =
         new("docker", ["version", "--format", "json"]);
 
     public static CommandSpec DockerScoutCves(string imageRef) =>
-        new("docker", ["scout", "cves", imageRef]);
+        new("docker", ["scout", "cves", "--format", "sarif", imageRef]);
 }
