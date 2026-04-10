@@ -42,7 +42,8 @@ public sealed class GoogleCveAnalysisService
             model = "gemini-1.5-flash";
         }
 
-        var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={Uri.EscapeDataString(apiKey)}";
+        var configuredApiVersion = configuration["GoogleAgent:ApiVersion"];
+        var apiVersion = string.IsNullOrWhiteSpace(configuredApiVersion) ? "v1beta" : configuredApiVersion;
 
         var payload = new
         {
@@ -69,37 +70,33 @@ public sealed class GoogleCveAnalysisService
         try
         {
             using var client = httpClientFactory.CreateClient();
-            using var response = await client.PostAsJsonAsync(endpoint, payload, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            if (!response.IsSuccessStatusCode)
+            var primaryResponse = await SendGenerateContentAsync(client, apiVersion, model, apiKey, payload, cancellationToken);
+            if (!primaryResponse.Success && primaryResponse.StatusCode == System.Net.HttpStatusCode.Forbidden && apiVersion.Equals("v1beta", StringComparison.OrdinalIgnoreCase))
             {
-                logger.LogWarning(
-                    "Google CVE analysis request failed with status {StatusCode}. Body: {Body}",
-                    response.StatusCode,
-                    responseBody);
-
-                return new ContainerAiAnalysisResult
+                logger.LogInformation("Retrying Google CVE analysis with API version v1 after 403 from v1beta.");
+                var retryResponse = await SendGenerateContentAsync(client, "v1", model, apiKey, payload, cancellationToken);
+                if (retryResponse.Success)
                 {
-                    IsSuccess = false,
-                    Error = $"Google analysis failed ({(int)response.StatusCode})."
-                };
+                    return new ContainerAiAnalysisResult
+                    {
+                        IsSuccess = true,
+                        Analysis = retryResponse.Analysis.Trim()
+                    };
+                }
+
+                return BuildFailureResult(retryResponse.StatusCode, retryResponse.ErrorMessage);
             }
 
-            var analysis = ExtractAnalysisText(responseBody);
-            if (string.IsNullOrWhiteSpace(analysis))
+            if (!primaryResponse.Success)
             {
-                return new ContainerAiAnalysisResult
-                {
-                    IsSuccess = false,
-                    Error = "Google analysis did not return text output."
-                };
+                return BuildFailureResult(primaryResponse.StatusCode, primaryResponse.ErrorMessage);
             }
 
             return new ContainerAiAnalysisResult
             {
                 IsSuccess = true,
-                Analysis = analysis.Trim()
+                Analysis = primaryResponse.Analysis.Trim()
             };
         }
         catch (Exception ex)
@@ -111,6 +108,59 @@ public sealed class GoogleCveAnalysisService
                 Error = "Google analysis request failed due to an unexpected error."
             };
         }
+    }
+
+    private ContainerAiAnalysisResult BuildFailureResult(System.Net.HttpStatusCode statusCode, string errorMessage)
+    {
+        var status = (int)statusCode;
+        var userSafeError = string.IsNullOrWhiteSpace(errorMessage)
+            ? $"Google analysis failed ({status})."
+            : $"Google analysis failed ({status}): {errorMessage}";
+
+        return new ContainerAiAnalysisResult
+        {
+            IsSuccess = false,
+            Error = userSafeError
+        };
+    }
+
+    private async Task<GoogleGenerateContentResponse> SendGenerateContentAsync(
+        HttpClient client,
+        string apiVersion,
+        string model,
+        string apiKey,
+        object payload,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = $"https://generativelanguage.googleapis.com/{apiVersion}/models/{model}:generateContent";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Add("x-goog-api-key", apiKey);
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var googleErrorMessage = TryExtractGoogleErrorMessage(responseBody);
+            logger.LogWarning(
+                "Google CVE analysis request failed with status {StatusCode}. Body: {Body}",
+                response.StatusCode,
+                responseBody);
+
+            return GoogleGenerateContentResponse.Failure(response.StatusCode, googleErrorMessage);
+        }
+
+        var analysis = ExtractAnalysisText(responseBody);
+        if (string.IsNullOrWhiteSpace(analysis))
+        {
+            return GoogleGenerateContentResponse.Failure(response.StatusCode, "Google analysis did not return text output.");
+        }
+
+        return GoogleGenerateContentResponse.Success(analysis);
     }
 
     private static string BuildPrompt(DockerImageInfo image, ImageCveReport report)
@@ -172,12 +222,77 @@ public sealed class GoogleCveAnalysisService
             return string.Empty;
         }
 
-        var texts = parts
+        var textParts = parts
             .EnumerateArray()
-            .Where(part => part.TryGetProperty("text", out _))
-            .Select(part => part.GetProperty("text").GetString())
+            .Select(part => TryExtractPartText(part))
             .Where(text => !string.IsNullOrWhiteSpace(text));
 
-        return string.Join(Environment.NewLine, texts);
+        return string.Join(Environment.NewLine, textParts);
+    }
+
+    private static string? TryExtractPartText(JsonElement part)
+    {
+        if (part.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String)
+        {
+            return textElement.GetString();
+        }
+
+        if (part.TryGetProperty("outputText", out var outputTextElement) && outputTextElement.ValueKind == JsonValueKind.String)
+        {
+            return outputTextElement.GetString();
+        }
+
+        if (part.TryGetProperty("inlineData", out var inlineData)
+            && inlineData.ValueKind == JsonValueKind.Object
+            && inlineData.TryGetProperty("data", out var inlineDataValue)
+            && inlineDataValue.ValueKind == JsonValueKind.String)
+        {
+            return inlineDataValue.GetString();
+        }
+
+        return null;
+    }
+
+    private static string TryExtractGoogleErrorMessage(string responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            if (document.RootElement.TryGetProperty("error", out var errorElement)
+                && errorElement.ValueKind == JsonValueKind.Object)
+            {
+                if (errorElement.TryGetProperty("message", out var messageElement)
+                    && messageElement.ValueKind == JsonValueKind.String)
+                {
+                    return messageElement.GetString() ?? string.Empty;
+                }
+
+                if (errorElement.TryGetProperty("status", out var statusElement)
+                    && statusElement.ValueKind == JsonValueKind.String)
+                {
+                    return statusElement.GetString() ?? string.Empty;
+                }
+            }
+        }
+        catch
+        {
+            // Keep empty on malformed body.
+        }
+
+        return string.Empty;
+    }
+
+    private sealed record GoogleGenerateContentResponse(bool Success, string Analysis, string ErrorMessage, System.Net.HttpStatusCode StatusCode)
+    {
+        public static GoogleGenerateContentResponse Success(string analysis)
+            => new(true, analysis, string.Empty, System.Net.HttpStatusCode.OK);
+
+        public static GoogleGenerateContentResponse Failure(System.Net.HttpStatusCode statusCode, string errorMessage)
+            => new(false, string.Empty, errorMessage, statusCode);
     }
 }
